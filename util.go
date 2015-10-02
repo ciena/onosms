@@ -1,4 +1,4 @@
-package onos
+package onosms
 
 import (
 	"net"
