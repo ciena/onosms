@@ -22,3 +22,7 @@ _testmain.go
 *.exe
 *.test
 *.prof
+bp2/hooks/onos-hook
+bp2/hooks/onos-wrapper
+docker.img
+src
