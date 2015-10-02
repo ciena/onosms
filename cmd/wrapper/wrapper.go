@@ -30,7 +30,7 @@ import (
 	"strings"
 	"time"
 
-	"onos"
+	"onosms"
 	"github.com/davidkbainbridge/jsonq"
 )
 
@@ -186,9 +186,9 @@ func startOnos() *exec.Cmd {
 // changes.
 func watchPods(kube string) {
 
-	cluster := onos.StringSet{}
+	cluster := onosms.StringSet{}
 	// The set in the cluster will always include myself.
-	ip, err := onos.GetMyIP()
+	ip, err := onosms.GetMyIP()
 	if err != nil {
 		// add loopback, may not be the best solution
 		cluster.Add("127.0.0.1")
@@ -243,7 +243,7 @@ func watchPods(kube string) {
 			}
 		}
 		if modified {
-			onos.WriteClusterConfig(cluster.Array())
+			onosms.WriteClusterConfig(cluster.Array())
 		} else {
 			log.Println("INFO: no modification of cluster information based on update from kubernetes")
 		}
@@ -304,7 +304,7 @@ func watchPods(kube string) {
 								}
 							}
 							if modified {
-								onos.WriteClusterConfig(cluster.Array())
+								onosms.WriteClusterConfig(cluster.Array())
 							} else {
 								log.Println("INFO: no modification of cluster information based on update from kubernetes")
 							}
