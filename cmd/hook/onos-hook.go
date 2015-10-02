@@ -29,7 +29,7 @@ import (
 	"strings"
 	"unicode"
 
-	"onos"
+	"github.com/ciena/onosms"
 )
 
 const (
@@ -55,8 +55,8 @@ func equal(a, b []string) bool {
 	}
 
 	// Sort the arrays so that we can walk them simultaneouslly checking for equality
-	sort.Sort(onos.AlphaOrder(a))
-	sort.Sort(onos.AlphaOrder(b))
+	sort.Sort(onosms.AlphaOrder(a))
+	sort.Sort(onosms.AlphaOrder(b))
 
 	for i := 0; i < len(a); i = i + 1 {
 		if strings.Compare(a[i], b[i]) != 0 {
@@ -153,7 +153,7 @@ func main() {
 				peerLeader := strconv.Itoa(int(peerData["leader"].(float64)))
 				log.Printf("INFO: peer leader ID is: %s\n", peerLeader)
 
-				myIP, err := onos.GetMyIP()
+				myIP, err := onosms.GetMyIP()
 				if err == nil {
 					want = append(want, myIP)
 					log.Printf("INFO: append own IP '%s' to desired cluster list\n", myIP)
@@ -170,7 +170,7 @@ func main() {
 					}
 				}
 
-				onos.WriteClusterConfig(want)
+				onosms.WriteClusterConfig(want)
 				/*
 					// Construct object that represents the ONOS cluster information
 					cluster := make(map[string]interface{})
@@ -202,7 +202,7 @@ func main() {
 					// IT IS IMPORTANT THAT EACH INSTANCE HAVE IDENTICAL PARTITION CONFIGURATIONS
 					partitions := make(map[string]interface{})
 					cnt := len(want)
-					sort.Sort(onos.IPOrder(want))
+					sort.Sort(onosms.IPOrder(want))
 
 					size := cnt - 1
 					if size < 3 {
@@ -295,7 +295,7 @@ func main() {
 		}
 
 		// Return join message always, not the best form, but lets face it the platform should know
-		myIP, err := onos.GetMyIP()
+		myIP, err := onosms.GetMyIP()
 		if err != nil {
 			myIP = "0.0.0.0"
 		}
