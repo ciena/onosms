@@ -30,7 +30,7 @@ import (
 	"strings"
 	"time"
 
-	"onosms"
+	"github.com/ciena/onosms"
 	"github.com/davidkbainbridge/jsonq"
 )
 
