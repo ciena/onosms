@@ -19,3 +19,16 @@ bp2/hooks/onos-hook:
 
 clean:
 	rm -rf docker.img *~ bp2/hooks/onos-hook bp2/hooks/onos-wrapper bin pkg vendor src hook wrapper
+
+bp2/hooks/onos-hook: \
+	./src/github.com/ciena/onosms/cmd/hook/gather.go \
+	./src/github.com/ciena/onosms/cmd/hook/onos-hook.go \
+	./src/github.com/ciena/onosms/onos.go \
+	./src/github.com/ciena/onosms/stringset.go \
+	./src/github.com/ciena/onosms/util.go
+
+bp2/hooks/onos-wrapper: \
+	./src/github.com/ciena/onosms/cmd/wrapper/wrapper.go \
+	./src/github.com/ciena/onosms/onos.go \
+	./src/github.com/ciena/onosms/stringset.go \
+	./src/github.com/ciena/onosms/util.go
