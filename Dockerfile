@@ -21,7 +21,8 @@ RUN GOPATH=/root/build/onosms go get github.com/tools/godep && \
     GOPATH=/root/build/onosms ./bin/godep restore && \
     make bp2/hooks/onos-hook bp2/hooks/onos-wrapper && \
     mkdir -p /bp2/hooks && \
-    cp bp2/hooks/onos-hook /bp2/hooks
+    cp bp2/hooks/onos-hook /bp2/hooks/onos-hook && \
+    cp bp2/hooks/onos-wrapper /bp2/hooks/onos-wrapper
 
 WORKDIR /root/onos
 
