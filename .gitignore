@@ -26,3 +26,5 @@ bp2/hooks/onos-hook
 bp2/hooks/onos-wrapper
 docker.img
 src
+bin
+vendor
