@@ -5,9 +5,12 @@ all: image
 
 image: docker.img
 
-docker.img: bp2/hooks/onos-hook bp2/hooks/onos-wrapper bp2/hooks/onos-service Dockerfile
-	docker build --tag=ciena/onos:1.3  .
-	touch docker.img
+docker.img: bp2/hooks/onos-hook bp2/hooks/onos-wrapper bp2/hooks/onos-service ./Dockerfile.local
+	mkdir -p ./work
+	cp Dockerfile.local ./work/Dockerfile
+	cp -r ./bp2 ./work
+	docker build --tag=ciena/onos:1.3 ./work
+	touch ./docker.img
 
 bp2/hooks/onos-wrapper:
 	GOPATH=$(top) CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
@@ -18,7 +21,7 @@ bp2/hooks/onos-hook:
 		go build -o bp2/hooks/onos-hook github.com/ciena/onosms/cmd/hook
 
 clean:
-	rm -rf docker.img *~ bp2/hooks/onos-hook bp2/hooks/onos-wrapper bin pkg vendor src hook wrapper
+	rm -rf docker.img *~ bp2/hooks/onos-hook bp2/hooks/onos-wrapper bin pkg vendor src hook wrapper work
 
 bp2/hooks/onos-hook: \
 	./src/github.com/ciena/onosms/cmd/hook/gather.go \
