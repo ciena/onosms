@@ -187,6 +187,8 @@ func startOnos() *exec.Cmd {
 func watchPods(kube string) {
 
 	cluster := onosms.StringSet{}
+	byName := map[string]string{}
+
 	// The set in the cluster will always include myself.
 	ip, err := onosms.GetMyIP()
 	if err != nil {
@@ -240,6 +242,7 @@ func watchPods(kube string) {
 					cluster.Add(ip)
 					modified = true
 				}
+				byName[jq.AsString("metadata.name")] = ip
 			}
 		}
 		if modified {
@@ -284,33 +287,43 @@ func watchPods(kube string) {
 						b, _ := json.MarshalIndent(data, "", "    ")
 						log.Printf("DEBUG: retrieved: %v\n", string(b))
 						jq := jsonq.NewQuery(data)
+						name := jq.AsString("object.metadata.name")
 						ip, err = jq.String("object.status.podIP")
-						if err == nil {
-							modified := false
-							log.Printf("IP: (%s) %s == %s\n", jq.AsString("type"), jq.AsString("object.metadata.name"),
-								jq.AsString("object.status.podIP"))
-							switch jq.AsString("type") {
-							case "DELETED":
+						modified := false
+						log.Printf("IP: (%s) %s == %s\n", jq.AsString("type"), name, ip)
+						switch jq.AsString("type") {
+						case "DELETED":
+							if ip == "" {
+								ip = byName[name]
+							}
+							if ip != "" {
 								if cluster.Contains(ip) {
 									cluster.Remove(ip)
 									modified = true
 								}
-							case "MODIFIED":
-								fallthrough
-							case "ADDED":
+								delete(byName, name)
+							} else {
+								log.Println("ERROR: Unable to determine podIP for pod being deleted")
+							}
+						case "MODIFIED":
+							fallthrough
+						case "ADDED":
+							if ip == "" {
 								if !cluster.Contains(ip) {
 									cluster.Add(ip)
 									modified = true
 								}
-							}
-							if modified {
-								onosms.WriteClusterConfig(cluster.Array())
+								byName[name] = ip
 							} else {
-								log.Println("INFO: no modification of cluster information based on update from kubernetes")
+								log.Println("INFO: Update without a podIP")
 							}
-						} else {
-							log.Printf("ERROR COULD NOT FIND IP: %s\n", err)
 						}
+						if modified {
+							onosms.WriteClusterConfig(cluster.Array())
+						} else {
+							log.Println("INFO: no modification of cluster information based on update from kubernetes")
+						}
+
 					} else {
 						log.Printf("ERROR: unable to decode %s\n", err)
 					}

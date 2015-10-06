@@ -9,7 +9,7 @@ docker.img: bp2/hooks/onos-hook bp2/hooks/onos-wrapper bp2/hooks/onos-service ./
 	mkdir -p ./work
 	cp Dockerfile.local ./work/Dockerfile
 	cp -r ./bp2 ./work
-	docker build --tag=ciena/onos:1.3 ./work
+	docker build --tag=ciena/onosms:1.3 ./work
 	touch ./docker.img
 
 bp2/hooks/onos-wrapper:
