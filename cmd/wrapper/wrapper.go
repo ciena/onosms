@@ -284,13 +284,15 @@ func watchPods(kube string) {
 					var data map[string]interface{}
 					err := decoder.Decode(&data)
 					if err == nil {
+						log.Printf("DEBUG: cluster = %v\n", cluster)
+						log.Printf("DEUBG: byName = %v\n", byName)
 						b, _ := json.MarshalIndent(data, "", "    ")
 						log.Printf("DEBUG: retrieved: %v\n", string(b))
 						jq := jsonq.NewQuery(data)
 						name := jq.AsString("object.metadata.name")
 						ip, err = jq.String("object.status.podIP")
 						modified := false
-						log.Printf("IP: (%s) %s == %s\n", jq.AsString("type"), name, ip)
+						log.Printf("IP: (%s) %s == %s | %s\n", jq.AsString("type"), name, ip, byName[name])
 						switch jq.AsString("type") {
 						case "DELETED":
 							if ip == "" {
@@ -303,12 +305,12 @@ func watchPods(kube string) {
 								}
 								delete(byName, name)
 							} else {
-								log.Println("ERROR: Unable to determine podIP for pod being deleted")
+								log.Printf("ERROR: Unable to determine podIP for pod being deleted: %s\n", err)
 							}
 						case "MODIFIED":
 							fallthrough
 						case "ADDED":
-							if ip == "" {
+							if ip != "" {
 								if !cluster.Contains(ip) {
 									cluster.Add(ip)
 									modified = true
