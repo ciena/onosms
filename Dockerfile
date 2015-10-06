@@ -11,7 +11,7 @@ RUN mkdir -p /bp2/save && \
 # Install Go
 WORKDIR /usr/local
 RUN curl https://storage.googleapis.com/golang/go1.5.1.linux-amd64.tar.gz | tar xzf - -C /usr/local && \
-    ln -s /usr/local/go/bin/* /usr/local/bin/
+    ln -s /usr/local/go/bin/go /usr/local/bin/go
 
 # Download and build the artifacts
 RUN mkdir -p /root/build && \
@@ -39,6 +39,15 @@ ENV ONOS_APPS drivers,openflow,proxyarp,mobility,fwd
 RUN ln -s /bp2/hooks/onos-hook /bp2/hooks/heartbeat && \
     ln -s /bp2/hooks/onos-hook /bp2/hooks/peer-update && \
     ln -s /bp2/hooks/onos-hook /bp2/hooks/peer-status
+
+# Cleanup
+RUN rm -rf /usr/local/bin/go && \
+    rm -rf /usr/local/go && \
+    rm -rf /root/build && \
+    apt-get remove -y git build-essential && \
+    apt-get autoremove -y && \
+    apt-get purge -y && \
+    apt-get clean
 
 ENV BP2HOOK_heartbeat=/bp2/hooks/heartbeat
 ENV BP2HOOK_peer-update=/bp2/hooks/peer-update
