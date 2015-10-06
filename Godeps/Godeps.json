@@ -3,13 +3,12 @@
 	"GoVersion": "go1.5",
 	"Packages": [
 		"github.com/ciena/onosms",
-		"github.com/ciena/onosms/cmd/hook",
-		"github.com/ciena/onosms/cmd/wrapper"
+		"github.com/davidkbainbridge/jsonq"
 	],
 	"Deps": [
 		{
 			"ImportPath": "github.com/ciena/onosms",
-			"Rev": "8e51342d031280a339e71acfb116ba3d1327f9db"
+			"Rev": "49cdf75cecf636f800017f2b5bcdfb6605792918"
 		},
 		{
 			"ImportPath": "github.com/davidkbainbridge/jsonq",
