@@ -4,7 +4,7 @@ metadata:
   name: onos
   labels:
       name: onos
-      type: snd-controller
+      type: sdn-controller
       cluster: west-coast
 spec:
   ports:
@@ -14,6 +14,7 @@ spec:
       targetPort: 8181
       protocol: TCP
       name: api
+  type: LoadBalancer
   # just like the selector in the replication controller,
   # but this time it identifies the set of pods to load balance
   # traffic to.
