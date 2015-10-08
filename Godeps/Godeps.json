@@ -8,7 +8,7 @@
 	"Deps": [
 		{
 			"ImportPath": "github.com/ciena/onosms",
-			"Rev": "321e91274190761612b172d788d34fc315c5137f"
+			"Rev": "8c0499cf85d353f839bb53b338468c11f6672be3"
 		},
 		{
 			"ImportPath": "github.com/davidkbainbridge/jsonq",
