@@ -21,6 +21,12 @@ spec:
       containers:
         - name: onos
           image: ciena/onosms:1.3
+          env:
+            # User name and password base64 encoded
+            - name: KUBE_USER
+              value: dmFncmFudA==
+            - name: KUBE_PASSWORD
+              value: dmFncmFudA==
           ports:
             - containerPort: 8181
               protocol: TCP

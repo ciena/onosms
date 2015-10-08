@@ -18,6 +18,7 @@ package main
 
 import (
 	"crypto/tls"
+	"encoding/base64"
 	"encoding/json"
 	"io"
 	"io/ioutil"
@@ -43,10 +44,11 @@ const (
 	partitionFileName   = "/bp2/hooks/tablets.json"
 	onosPartitionConfig = "/root/onos/config/tablets.json"
 	serveOnAddr         = "127.0.0.1:4343"
-	kubeCreds           = "vagrant:vagrant"
 	kubeOnosSelector    = "name in (onos)"
 	httpTimeout         = "5s"
 	maxErrorCount       = 10
+	kubeUserKey         = "KUBE_USER"
+	kubePasswordKey     = "KUBE_PASSWORD"
 )
 
 // echo take what is ever on one reader and write it to the writer
@@ -213,10 +215,30 @@ func watchPods(kube string) {
 		Timeout:   timeout,
 	}
 
-	log.Printf("INFO: fetch cluster information from 'https://%s@%s/api/v1/namespaces/default/pods?labelSelector=%s'\n",
+	kubeCreds := ""
+	kubeUser := os.Getenv(kubeUserKey)
+	kubePassword := os.Getenv(kubePasswordKey)
+	log.Printf("DEBUG: ENVIRONMENT '%s' '%s'\n", kubeUser, kubePassword)
+	if kubeUser != "" {
+		val, err := base64.StdEncoding.DecodeString(kubeUser)
+		if err == nil {
+			kubeUser = string(val)
+			val, err = base64.StdEncoding.DecodeString(kubePassword)
+			if err == nil {
+				kubePassword = string(val)
+				kubeCreds = kubeUser + ":" + kubePassword + "@"
+			} else {
+				log.Printf("ERROR: unable to decode password (%s) for kubernetes api: %s\n", kubeUser, err)
+			}
+		} else {
+			log.Printf("ERROR: unable to decode username (%s) for kubernetes api: %s\n", kubePassword, err)
+		}
+	}
+
+	log.Printf("INFO: fetch cluster information from 'https://%s%s/api/v1/namespaces/default/pods?labelSelector=%s'\n",
 		kubeCreds, kube, url.QueryEscape(kubeOnosSelector))
 
-	resp, err := client.Get("https://" + kubeCreds + "@" + kube + "/api/v1/namespaces/default/pods?labelSelector=" + url.QueryEscape(kubeOnosSelector))
+	resp, err := client.Get("https://" + kubeCreds + kube + "/api/v1/namespaces/default/pods?labelSelector=" + url.QueryEscape(kubeOnosSelector))
 	if err != nil {
 		log.Fatalf("ERROR: Unable to communciate to kubernetes to maintain cluster information: %s\n", err)
 	}
@@ -260,7 +282,7 @@ func watchPods(kube string) {
 	errCount := 0
 	client.Timeout = 0
 	for {
-		resp, err = client.Get("https://" + kubeCreds + "@" + kube + "/api/v1/namespaces/default/pods?labelSelector=" + url.QueryEscape(kubeOnosSelector) + "&watch=true")
+		resp, err = client.Get("https://" + kubeCreds + kube + "/api/v1/namespaces/default/pods?labelSelector=" + url.QueryEscape(kubeOnosSelector) + "&watch=true")
 		if err != nil {
 			errCount++
 			if errCount > maxErrorCount {
