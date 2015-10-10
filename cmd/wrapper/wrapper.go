@@ -18,6 +18,7 @@ package main
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
 	"io"
@@ -36,19 +37,23 @@ import (
 )
 
 const (
-	onosHome            = "/root/onos"
-	cleanOnosArchive    = "/bp2/save/clean.tgz"
-	onosConfigDir       = "/root/onos/config"
-	clusterFileName     = "/bp2/hooks/cluster.json"
-	onosClusterConfig   = "/root/onos/config/cluster.json"
-	partitionFileName   = "/bp2/hooks/tablets.json"
-	onosPartitionConfig = "/root/onos/config/tablets.json"
-	serveOnAddr         = "127.0.0.1:4343"
-	kubeOnosSelector    = "name in (onos)"
-	httpTimeout         = "5s"
-	maxErrorCount       = 10
-	kubeUserKey         = "KUBE_USER"
-	kubePasswordKey     = "KUBE_PASSWORD"
+	onosHome                 = "/root/onos"
+	cleanOnosArchive         = "/bp2/save/clean.tgz"
+	onosConfigDir            = "/root/onos/config"
+	clusterFileName          = "/bp2/hooks/cluster.json"
+	onosClusterConfig        = "/root/onos/config/cluster.json"
+	partitionFileName        = "/bp2/hooks/tablets.json"
+	onosPartitionConfig      = "/root/onos/config/tablets.json"
+	serveOnAddr              = "127.0.0.1:4343"
+	kubeOnosSelector         = "name in (onos)"
+	httpTimeout              = "5s"
+	maxErrorCount            = 10
+	kubeUserKey              = "KUBE_USER"
+	kubePasswordKey          = "KUBE_PASSWORD"
+	httpBearerHeader         = "Bearer"
+	httpAuthorizationHeader  = "Authorization"
+	serviceAccountTokenFile  = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+	serviceAccountCACertFile = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 )
 
 // echo take what is ever on one reader and write it to the writer
@@ -205,42 +210,86 @@ func watchPods(kube string) {
 	if err != nil {
 		log.Printf("ERROR: unable to parse default HTTP timeout of '%s', will default to no timeout\n", httpTimeout)
 	}
-	tr := &http.Transport{
-		TLSClientConfig:       &tls.Config{InsecureSkipVerify: true},
-		TLSHandshakeTimeout:   timeout,
-		ResponseHeaderTimeout: timeout,
-	}
-	client := &http.Client{
-		Transport: tr,
-		Timeout:   timeout,
+
+	bearer := ""
+	if b, err := ioutil.ReadFile(serviceAccountTokenFile); err == nil {
+		log.Println("DEBUG: successfully read authentication bearer from secrets")
+		bearer = string(b)
+	} else {
+		log.Printf("DEBUG: unable to read token file, '%s': %s\n", serviceAccountTokenFile, err)
 	}
 
-	kubeCreds := ""
-	kubeUser := os.Getenv(kubeUserKey)
-	kubePassword := os.Getenv(kubePasswordKey)
-	log.Printf("DEBUG: ENVIRONMENT '%s' '%s'\n", kubeUser, kubePassword)
-	if kubeUser != "" {
-		val, err := base64.StdEncoding.DecodeString(kubeUser)
-		if err == nil {
-			kubeUser = string(val)
-			val, err = base64.StdEncoding.DecodeString(kubePassword)
-			if err == nil {
-				kubePassword = string(val)
-				kubeCreds = kubeUser + ":" + kubePassword + "@"
-			} else {
-				log.Printf("ERROR: unable to decode password (%s) for kubernetes api: %s\n", kubeUser, err)
-			}
+	var caCertPool *x509.CertPool
+	var cacert []byte
+	if cacert, err = ioutil.ReadFile(serviceAccountCACertFile); err == nil {
+		log.Println("DEBUG: successfully read authentication ca certificate")
+
+		caCertPool = x509.NewCertPool()
+		if ok := caCertPool.AppendCertsFromPEM(cacert); !ok {
+			log.Fatalln("Unable to load cert from file")
 		} else {
-			log.Printf("ERROR: unable to decode username (%s) for kubernetes api: %s\n", kubePassword, err)
+			log.Printf("DEBUG: add certificate to pool: %s\n", string(cacert))
+		}
+	} else {
+		log.Printf("DEBUG: unable to read ca certificate file, '%s': %s\n", serviceAccountCACertFile, err)
+	}
+
+	// If we have a bearer and a cert then we should be using those as credentials, if not we will
+	// check the environment
+	kubeCreds := ""
+	if bearer != "" && caCertPool != nil {
+		kubeUser := os.Getenv(kubeUserKey)
+		kubePassword := os.Getenv(kubePasswordKey)
+		log.Printf("DEBUG: ENVIRONMENT '%s' '%s'\n", kubeUser, kubePassword)
+		if kubeUser != "" {
+			val, err := base64.StdEncoding.DecodeString(kubeUser)
+			if err == nil {
+				kubeUser = string(val)
+				val, err = base64.StdEncoding.DecodeString(kubePassword)
+				if err == nil {
+					kubePassword = string(val)
+					kubeCreds = kubeUser + ":" + kubePassword + "@"
+				} else {
+					log.Printf("ERROR: unable to decode password (%s) for kubernetes api: %s\n", kubeUser, err)
+				}
+			} else {
+				log.Printf("ERROR: unable to decode username (%s) for kubernetes api: %s\n", kubePassword, err)
+			}
 		}
 	}
 
 	log.Printf("INFO: fetch cluster information from 'https://%s%s/api/v1/namespaces/default/pods?labelSelector=%s'\n",
 		kubeCreds, kube, url.QueryEscape(kubeOnosSelector))
 
-	resp, err := client.Get("https://" + kubeCreds + kube + "/api/v1/namespaces/default/pods?labelSelector=" + url.QueryEscape(kubeOnosSelector))
+	req, err := http.NewRequest("GET", "https://"+kubeCreds+kube+"/api/v1/namespaces/default/pods?labelSelector="+url.QueryEscape(kubeOnosSelector), nil)
+	if err != nil {
+		log.Fatalf("ERROR: Unable to build http request to kubernetes API server: %s\n", err)
+	}
+	if len(bearer) > 0 {
+		log.Printf("DEBUG: adding to header: %s %s\n", httpBearerHeader, bearer)
+		req.Header.Add(httpAuthorizationHeader, httpBearerHeader+" "+bearer)
+	}
+
+	client := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true,
+				RootCAs:            caCertPool,
+			},
+			TLSHandshakeTimeout:   timeout,
+			ResponseHeaderTimeout: timeout,
+		},
+		Timeout: timeout,
+	}
+
+	resp, err := client.Do(req)
 	if err != nil {
 		log.Fatalf("ERROR: Unable to communciate to kubernetes to maintain cluster information: %s\n", err)
+	}
+	log.Printf("DEBUG: response back from kubernetes: %s\n", resp.Status)
+
+	if int(resp.StatusCode/100) != 2 {
+		log.Fatalf("ERROR: bad response code back from kubernetes: %s\n", resp.Status)
 	}
 
 	var data map[string]interface{}
@@ -282,7 +331,20 @@ func watchPods(kube string) {
 	errCount := 0
 	client.Timeout = 0
 	for {
-		resp, err = client.Get("https://" + kubeCreds + kube + "/api/v1/namespaces/default/pods?labelSelector=" + url.QueryEscape(kubeOnosSelector) + "&watch=true")
+		req, err := http.NewRequest("GET",
+			"https://"+kubeCreds+kube+"/api/v1/namespaces/default/pods?labelSelector="+url.QueryEscape(kubeOnosSelector)+"&watch=true", nil)
+		if err != nil {
+			errCount++
+			if errCount > maxErrorCount {
+				log.Fatalf("ERROR: Too many errors (%d) while attempting to build request to kubernetes: %s", errCount, err)
+			}
+		}
+		if bearer != "" {
+			log.Printf("DEBUG: adding to header: %s %s\n", httpBearerHeader, bearer)
+			req.Header.Add(httpAuthorizationHeader, httpBearerHeader+" "+bearer)
+		}
+
+		resp, err := client.Do(req)
 		if err != nil {
 			errCount++
 			if errCount > maxErrorCount {
