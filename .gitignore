@@ -29,3 +29,4 @@ src
 bin
 vendor
 work
+Godeps/_workspace
